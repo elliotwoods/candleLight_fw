@@ -417,6 +417,8 @@ void USBD_GS_CAN_DebugFault(USBD_HandleTypeDef *pdev)
 		!time_after(HAL_GetTick(), hcan->debug_fault_at))
 		return;
 
+	hcan->debug_fault_at = 0;
+
 	switch (hcan->debug_fault_kind) {
 		case 0:
 			assert_failed();
@@ -427,8 +429,8 @@ void USBD_GS_CAN_DebugFault(USBD_HandleTypeDef *pdev)
 			while (1) {
 			}
 		case 2:
-			/* unaligned word access: HardFault on Cortex-M0 */
-			*(volatile uint32_t *)(uintptr_t)0x20000001 = 0;
+			/* permanently undefined instruction: HardFault */
+			__asm__ volatile ("udf #0");
 			break;
 	}
 }
