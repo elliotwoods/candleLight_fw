@@ -118,6 +118,15 @@ SECTIONS
 		__bss_end = .;
 	} > RAM AT > RAM
 
+	/* not cleared at start-up: survives a reset (see diag.c) */
+	.noinit (NOLOAD) :
+	{
+		. = ALIGN(4);
+		*(.noinit)
+		*(.noinit.*)
+		. = ALIGN(4);
+	} > RAM
+
 	PROVIDE( __bss_start = ADDR(.bss) );
 	PROVIDE( __bss_size = __bss_end - __bss_start );
 

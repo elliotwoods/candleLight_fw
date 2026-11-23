@@ -212,6 +212,7 @@ set(
 	include/can_common.h src/can_common.c
 	include/device.h
 	include/dfu.h src/dfu.c
+	include/diag.h src/diag.c
 	include/gpio.h src/gpio.c
 	include/host_frame.h
 	include/led.h src/led.c

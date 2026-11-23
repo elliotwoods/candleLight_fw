@@ -27,6 +27,7 @@
 #include "board.h"
 #include "can_common.h"
 #include "can_drv.h"
+#include "diag.h"
 #include "host_frame.h"
 #include "led.h"
 #include "timer.h"
@@ -441,6 +442,9 @@ static void can_handle_state_change(USBD_GS_CAN_HandleTypeDef *hcan, struct can_
 	 * we returned early, the recovery would never be scheduled and the channel would stay
 	 * bus-off for good.
 	 */
+	if (channel->state == GS_CAN_STATE_BUS_OFF)
+		diag_count_bus_off();
+
 	if (channel->state == GS_CAN_STATE_BUS_OFF &&
 		!(channel->feature & GS_CAN_FEATURE_BUS_OFF_RECOVERY))
 		can_schedule_bus_off_recovery(channel, CAN_BUS_OFF_RESTART_DELAY_MS);

@@ -273,6 +273,8 @@ THE SOFTWARE.
 	/* STM32F072CB: 16 KiB RAM, room for a larger frame pool */
 	#define CAN_QUEUE_SIZE			 256
 	#define CONFIG_WATCHDOG			 1
+	#define CONFIG_DIAG				 1
+	#define CONFIG_DEBUG_FAULT_REQUEST 1
 
 	#define TIM2_CLOCK_SPEED		 48000000
 

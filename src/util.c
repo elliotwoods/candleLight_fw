@@ -26,6 +26,7 @@ THE SOFTWARE.
 
 #include <util.h>
 #include <cmsis_device.h>
+#include "diag.h"
 #include "watchdog.h"
 
 void hex32(char *out, uint32_t val)
@@ -47,7 +48,9 @@ void hex32(char *out, uint32_t val)
 	}
 }
 
+__attribute__((noinline))
 void assert_failed(void) {
 	/* stop in the debugger if one is attached, else reset the device */
+	diag_record_fault(DIAG_FAULT_ASSERT, 0, (uint32_t)__builtin_return_address(0), 0);
 	fault_reset();
 }

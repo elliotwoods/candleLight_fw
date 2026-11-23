@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "diag.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -123,6 +124,10 @@ typedef struct {
 	uint32_t from_host_dropped;
 	uint32_t can_rx_dropped;
 
+	struct diag_report diag_report;
+	uint32_t debug_fault_at;     /* HAL tick, 0 = none */
+	uint16_t debug_fault_kind;
+
 	can_data_t channels[NUM_CAN_CHANNEL];
 
 	uint32_t sof_timestamp_us;
@@ -163,3 +168,4 @@ bool USBD_GS_CAN_CustomDeviceRequest(USBD_HandleTypeDef *pdev, USBD_SetupReqType
 bool USBD_GS_CAN_CustomInterfaceRequest(USBD_HandleTypeDef *pdev, USBD_SetupReqTypedef *req);
 
 bool USBD_GS_CAN_DfuDetachRequested(USBD_HandleTypeDef *pdev);
+void USBD_GS_CAN_DebugFault(USBD_HandleTypeDef *pdev);

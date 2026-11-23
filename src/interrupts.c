@@ -26,16 +26,39 @@ THE SOFTWARE.
 
 #include <stdint.h>
 #include "hal_include.h"
+#include "diag.h"
 #include "watchdog.h"
 
 void NMI_Handler(void)
 {
+	diag_record_fault(DIAG_FAULT_NMI, 0, (uint32_t)__builtin_return_address(0), 0);
 	fault_reset();
 }
 
+/* Called by HardFault_Handler with the exception stack frame:
+ * r0, r1, r2, r3, r12, lr, pc, xpsr. */
+__attribute__((used, noreturn, externally_visible))
+void hardfault_handler_c(const uint32_t *frame)
+{
+	diag_record_fault(DIAG_FAULT_HARDFAULT, frame[6], frame[5], frame[7]);
+	fault_reset();
+}
+
+__attribute__((naked))
 void HardFault_Handler(void)
 {
-	fault_reset();
+	__asm__ volatile (
+		"movs r0, #4\n"
+		"mov r1, lr\n"
+		"tst r0, r1\n"
+		"beq 1f\n"
+		"mrs r0, psp\n"
+		"b 2f\n"
+		"1: mrs r0, msp\n"
+		"2: ldr r1, =hardfault_handler_c\n"
+		"bx r1\n"
+		".ltorg\n"
+		);
 }
 
 void SysTick_Handler(void)

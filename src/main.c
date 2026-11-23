@@ -41,6 +41,7 @@
 #include "usbd_def.h"
 #include "usbd_desc.h"
 #include "usbd_gs_can.h"
+#include "diag.h"
 #include "watchdog.h"
 
 void initialise_monitor_handles(void);
@@ -54,6 +55,7 @@ int main(void)
 		initialise_monitor_handles();
 
 	HAL_Init();
+	diag_boot();
 	device_sysclock_config();
 
 	gpio_init();
@@ -116,6 +118,8 @@ int main(void)
 
 			led_update(&channel->leds);
 		}
+
+		USBD_GS_CAN_DebugFault(&hUSB);
 
 		if (USBD_GS_CAN_DfuDetachRequested(&hUSB)) {
 			dfu_run_bootloader();

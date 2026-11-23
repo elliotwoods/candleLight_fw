@@ -353,6 +353,86 @@ static can_data_t *USBD_GS_CAN_GetChannel(USBD_GS_CAN_HandleTypeDef *hcan,
 	return NULL;
 }
 
+static uint32_t usbd_gs_can_pool_free(USBD_GS_CAN_HandleTypeDef *hcan)
+{
+	struct list_head *pos;
+	uint32_t n = 0;
+
+	bool was_irq_enabled = disable_irq();
+	list_for_each(pos, &hcan->list_frame_pool) {
+		n++;
+	}
+	restore_irq(was_irq_enabled);
+
+	return n;
+}
+
+/* Vendor requests outside the gs_usb set: diagnostics (see diag.h). */
+static uint8_t USBD_GS_CAN_Diag_Request(USBD_HandleTypeDef *pdev, USBD_SetupReqTypedef *req)
+{
+	USBD_GS_CAN_HandleTypeDef *hcan = pdev->pClassData;
+
+	if (!IS_ENABLED(CONFIG_DIAG) || !(req->bmRequest & 0x80))
+		goto out_fail;
+
+	switch (req->bRequest) {
+		case GS_USB_BREQ_X_GET_DIAG:
+		case GS_USB_BREQ_X_GET_CLEAR_DIAG:
+			diag_fill_report(&hcan->diag_report, hcan->from_host_dropped,
+							 hcan->can_rx_dropped, usbd_gs_can_pool_free(hcan),
+							 ARRAY_SIZE(hcan->msgbuf));
+			if (req->bRequest == GS_USB_BREQ_X_GET_CLEAR_DIAG)
+				diag_clear_fault();
+			USBD_CtlSendData(pdev, (uint8_t *)&hcan->diag_report,
+							 (uint16_t)min((uint32_t)req->wLength, (uint32_t)sizeof(hcan->diag_report)));
+			return USBD_OK;
+
+		case GS_USB_BREQ_X_DEBUG_FAULT:
+			if (!IS_ENABLED(CONFIG_DEBUG_FAULT_REQUEST) || req->wValue > 2)
+				goto out_fail;
+			/* let the status stage finish before the fault */
+			hcan->debug_fault_kind = req->wValue;
+			hcan->debug_fault_at = HAL_GetTick() + 20;
+			if (!hcan->debug_fault_at)
+				hcan->debug_fault_at = 1;
+			hcan->diag_report.magic = DIAG_MAGIC;
+			USBD_CtlSendData(pdev, (uint8_t *)&hcan->diag_report.magic,
+							 (uint16_t)min((uint32_t)req->wLength, (uint32_t)sizeof(uint32_t)));
+			return USBD_OK;
+
+		default:
+			break;
+	}
+
+out_fail:
+	USBD_CtlError(pdev, req);
+	return USBD_FAIL;
+}
+
+void USBD_GS_CAN_DebugFault(USBD_HandleTypeDef *pdev)
+{
+	USBD_GS_CAN_HandleTypeDef *hcan = pdev->pClassData;
+
+	if (!IS_ENABLED(CONFIG_DEBUG_FAULT_REQUEST) || !hcan->debug_fault_at ||
+		!time_after(HAL_GetTick(), hcan->debug_fault_at))
+		return;
+
+	switch (hcan->debug_fault_kind) {
+		case 0:
+			assert_failed();
+			break;
+		case 1:
+			/* hang: only the watchdog gets us out */
+			__disable_irq();
+			while (1) {
+			}
+		case 2:
+			/* unaligned word access: HardFault on Cortex-M0 */
+			*(volatile uint32_t *)(uintptr_t)0x20000001 = 0;
+			break;
+	}
+}
+
 static uint8_t USBD_GS_CAN_Config_Request(USBD_HandleTypeDef *pdev, USBD_SetupReqTypedef *req)
 {
 	USBD_GS_CAN_HandleTypeDef *hcan = pdev->pClassData;
@@ -371,6 +451,12 @@ static uint8_t USBD_GS_CAN_Config_Request(USBD_HandleTypeDef *pdev, USBD_SetupRe
 	 * CAN channel.
 	 *
 	 */
+	if (req->bRequest == GS_USB_BREQ_X_GET_DIAG ||
+		req->bRequest == GS_USB_BREQ_X_GET_CLEAR_DIAG ||
+		req->bRequest == GS_USB_BREQ_X_DEBUG_FAULT) {
+		return USBD_GS_CAN_Diag_Request(pdev, req);
+	}
+
 	if (!(req->bRequest == GS_USB_BREQ_HOST_FORMAT ||
 		  req->bRequest == GS_USB_BREQ_DEVICE_CONFIG)) {
 		channel = USBD_GS_CAN_GetChannel(hcan, req->wValue);
