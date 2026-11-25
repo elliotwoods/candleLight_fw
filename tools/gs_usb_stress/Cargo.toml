@@ -1,0 +1,9 @@
+[package]
+name = "gs_usb_stress"
+version = "0.1.0"
+edition = "2021"
+description = "Host-stall stress test for gs_usb (candleLight_fw) adapters"
+publish = false
+
+[dependencies]
+nusb = "0.2.9"
